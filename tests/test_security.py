@@ -184,6 +184,52 @@ class SecurityTests(unittest.TestCase):
         self.assertIsNone(receiver._handle_data_message({"subtype": "expected", "invalid": True}))
         self.assertEqual(receiver.calls, 2)
 
+    def test_unknown_field_fallback_identifies_unnamed_fastpair_tag(self):
+        from server import finder
+        finder._ensure_imported()
+        from ProtoDecoders import DeviceUpdate_pb2 as pb
+        from server.proto_compat import inspect_device
+
+        def ld_field(number, payload):
+            assert len(payload) < 128
+            return bytes([number << 3 | 2, len(payload)]) + payload
+
+        uuid = b"12345678-1234-1234-1234-123456789abc"
+        entry = pb.DeviceMetadata()
+        entry.identifierInformation.type = pb.IDENTIFIER_ANDROID
+        # Google can put a Fast Pair UUID in unknown identifier field 5.
+        entry.identifierInformation.MergeFromString(ld_field(5, ld_field(1, uuid)))
+        alt_info = pb.DeviceInformation()
+        alt_info.deviceRegistration.encryptedUserSecrets.encryptedIdentityKey = b"test-identity"
+        entry.MergeFromString(ld_field(10, ld_field(11, alt_info.SerializeToString())))
+
+        summary = inspect_device(entry)
+        self.assertEqual(summary["name"], "(unnamed)")
+        self.assertEqual(summary["kind"], "ANDROID")
+        self.assertEqual(summary["ids"], 0)
+        self.assertTrue(summary["hidden_uuid"])
+        self.assertTrue(summary["alt_registration"])
+        self.assertTrue(summary["identity_key"])
+        self.assertTrue(summary["candidate"])
+
+        response = pb.DevicesList()
+        response.deviceMetadata.add().CopyFrom(entry)
+        with patch("NovaApi.ListDevices.nbe_list_devices.request_device_list",
+                   return_value=response.SerializeToString().hex()):
+            self.assertEqual(finder.list_trackers(), [("(unnamed)", uuid.decode("ascii"))])
+            self.assertNotIn(uuid.decode("ascii"), str(finder.list_device_summary()))
+
+    def test_unidentified_android_device_is_not_tag(self):
+        from server import finder
+        finder._ensure_imported()
+        from ProtoDecoders import DeviceUpdate_pb2 as pb
+        from server.proto_compat import inspect_device
+        entry = pb.DeviceMetadata()
+        entry.identifierInformation.type = pb.IDENTIFIER_ANDROID
+        entry.information.deviceRegistration.encryptedUserSecrets.encryptedIdentityKey = b"test"
+        result = inspect_device(entry)
+        self.assertFalse(result["candidate"])
+
     def test_tag_device_list_excludes_phones(self):
         from server import finder
         finder._ensure_imported()  # vendored protobuf path is inserted lazily

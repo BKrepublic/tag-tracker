@@ -5,7 +5,7 @@
   python -m server.manage users
   python -m server.manage google-login           automated Chrome sign-in (may be rejected)
   python -m server.manage google-manual-login    sign in using normal Chrome, without driver
-  python -m server.manage devices                show Google device names/types (no IDs)
+  python -m server.manage devices [--inspect]    show device types / safe metadata (no IDs)
   python -m server.manage poll                   fetch tag locations once and exit
   python -m server.manage demo                   add a fake tag with 1 year of sample history
   python -m server.manage backup                 upload a backup to Google Drive now
@@ -189,14 +189,21 @@ def main(argv):
         google_login()
     elif cmd == "google-manual-login" and not args:
         google_manual_login()
-    elif cmd == "devices" and not args:
+    elif cmd == "devices" and args in ([], ["--inspect"]):
         from . import finder
         devices = finder.list_device_summary()
         if not devices:
             print("Google returned no devices for this account.")
         for d in devices:
-            print(f"{d['kind']:8} {d['name']!r} ({d['ids']} canonical IDs)")
-        print(f"Total: {len(devices)} device entries. Only SPOT devices are tags.")
+            print(f"{d['kind']:8} {d['name']!r} ({d['ids']} known canonical IDs)"
+                  + (" [TAG CANDIDATE]" if d["candidate"] and d["kind"] != "SPOT" else ""))
+            if args == ["--inspect"]:
+                print(f"         direct_ids={d['direct_ids']} phone_ids={d['phone_ids']}"
+                      f" hidden_uuid={d['hidden_uuid']}"
+                      f" encrypted_identity={d['identity_key']}"
+                      f" alternative_registration={d['alt_registration']}")
+        print(f"Total: {len(devices)} device entries."
+              f" Location candidates: {sum(d['candidate'] for d in devices)}.")
     elif cmd == "poll":
         from . import poller
         poller.poll_once()

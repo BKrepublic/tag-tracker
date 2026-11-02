@@ -174,39 +174,26 @@ def _device_list():
 
 
 def list_device_summary() -> list[dict]:
-    """Return device names/types only; never expose canonical IDs or credentials."""
-    device_list = _device_list()  # loads the vendored protobuf module first
-    from ProtoDecoders import DeviceUpdate_pb2
+    """Return sanitized device metadata; canonical IDs remain private."""
+    from .proto_compat import inspect_device
 
-    result = []
-    for device in device_list.deviceMetadata:
-        info = device.identifierInformation
-        kind = {
-            DeviceUpdate_pb2.IDENTIFIER_ANDROID: "ANDROID",
-            DeviceUpdate_pb2.IDENTIFIER_SPOT: "SPOT",
-        }.get(info.type, f"OTHER({info.type})")
-        ids = (
-            info.phoneInformation.canonicIds.canonicId
-            if info.type == DeviceUpdate_pb2.IDENTIFIER_ANDROID
-            else info.canonicIds.canonicId
-        )
-        result.append({"name": device.userDefinedDeviceName or "(unnamed)",
-                       "kind": kind, "ids": len(ids)})
-    return result
+    output = []
+    for device in _device_list().deviceMetadata:
+        row = inspect_device(device)
+        row.pop("_canonical", None)
+        output.append(row)
+    return output
 
 
 def list_trackers() -> list[tuple[str, str]]:
-    """Return only real SPOT tags, not Android phones/tablets."""
-    device_list = _device_list()  # loads the vendored protobuf module first
-    from ProtoDecoders import DeviceUpdate_pb2
+    """Return SPOT tags plus non-standard identifier entries with tracker keys."""
+    from .proto_compat import inspect_device
 
     result = []
-    for device in device_list.deviceMetadata:
-        if device.identifierInformation.type != DeviceUpdate_pb2.IDENTIFIER_SPOT:
-            continue
-        for item in device.identifierInformation.canonicIds.canonicId:
-            if item.id:
-                result.append((device.userDefinedDeviceName or "(unnamed)", item.id))
+    for device in _device_list().deviceMetadata:
+        row = inspect_device(device)
+        if row["candidate"]:
+            result.extend((row["name"], identifier) for identifier in row["_canonical"])
     return result
 
 

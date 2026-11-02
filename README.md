@@ -146,14 +146,18 @@ will be skipped when already authenticated. The Google login or unlock
 page could change; this path is not an official or supported Google API.
 
 After successful authentication, **first inspect the device types**. The
-Google API may return Android phones and tablets as well as trackers; this
-server polls only devices marked `SPOT`. Device names and types are shown,
-but not canonical IDs or tokens. If no `SPOT` device appears, the account's
-Google API response did not include the tracker; verify it exists in Find
-Hub under the same account before retrying any locations.
+Google API may return Android phones and tablets as well as trackers. Some Fast
+Pair accessories use alternative protobuf fields for canonical IDs and tracker
+registration, so an unnamed entry with zero *known* IDs is not proof the tag is
+absent. The server also checks unknown identifier fields for a canonical UUID
+and requires encrypted tracker identity data before treating such an entry as
+a location candidate. For a safe inspection without exposing device IDs, run
+`devices --inspect`; inspect reports the presence of hidden UUIDs and encrypted
+identity data, not their contents. If there are no candidates, no location
+request can be made by this client.
 
 ```sh
-.venv/bin/python -m server.manage devices
+.venv/bin/python -m server.manage devices --inspect
 .venv/bin/python -m server.manage poll
 .venv/bin/python -m server.manage adduser myname
 .venv/bin/python -m server
