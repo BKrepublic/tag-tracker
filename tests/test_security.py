@@ -72,6 +72,20 @@ class SecurityTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "major versions differ"):
                     create_driver()
 
+    def test_scrypt_compat_rfc7914_vector(self):
+        from server.pyscrypt_compat import hash as scrypt_hash
+        expected = (
+            "77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442"
+            "fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906"
+        )
+        self.assertEqual(scrypt_hash(b"", b"", 16, 1, 1, 64).hex(), expected)
+
+    def test_upstream_scrypt_import_uses_compat(self):
+        from server import finder, pyscrypt_compat
+        finder._ensure_imported()
+        from KeyBackup import lskf_hasher
+        self.assertIs(lskf_hasher.pyscrypt, pyscrypt_compat)
+
     def test_upstream_auth_imports_use_safe_driver(self):
         from server import finder
         finder._ensure_imported()  # import only: no Google network request

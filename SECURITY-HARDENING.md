@@ -34,9 +34,9 @@ security audit, nor a guarantee that Google account access is safe.
 - Standard ChromeDriver automation may be blocked by Google. The real sign-in
   flow has not been tested. The official CachyOS/Arch `chromium` package
   contains both the browser and a matching `chromedriver`.
-- Linux setup excludes upstream `undetected-chromedriver` and `frida`, which
-  are not needed for Tag Tracker location retrieval; upstream sources
-  remain pinned and unchanged.
+- Linux setup excludes upstream `undetected-chromedriver` and `frida`.
+  The source-only `pyscrypt` package is replaced with the standard-library
+  `hashlib.scrypt` implementation (RFC 7914). Vendored sources remain pinned.
 - GoogleFindMyTools uses a **private, unsupported Google API**. Google could
   restrict access or change its behavior at any time.
 - The unresolved `python-ecdsa` timing side-channel advisory and
@@ -56,7 +56,7 @@ Run `python -m unittest discover -s tests -v` from the repository root after
 installing its regular Python dependencies. The tests only use a temporary
 database and mock the Chrome launcher.
 
-The Linux installer now skips two unnecessary upstream dependencies, uses
+The Linux installer now skips three upstream dependencies, uses
 binary wheels, and is tested in CI across supported Python versions. Other
 dependencies still use open version ranges, not hash-pinned lock files.
 No Google login or live tag polling was performed for this change.

@@ -43,6 +43,10 @@ def _ensure_imported():
         sys.path.insert(0, str(GFMT_DIR))
     if importlib.util.find_spec("selenium") is None:
         _stub_browser_modules()
+    # Prefer OpenSSL-backed hashlib.scrypt to upstream's source-only wrapper.
+    if importlib.util.find_spec("pyscrypt") is None:
+        from . import pyscrypt_compat
+        sys.modules["pyscrypt"] = pyscrypt_compat
     # Keep Google tokens in our data dir instead of inside the vendored library.
     import Auth.token_cache as token_cache
     token_cache._get_secrets_file = lambda: str(GOOGLE_SECRETS_PATH)
