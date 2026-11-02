@@ -197,7 +197,7 @@ class SecurityTests(unittest.TestCase):
         output_hex = response.SerializeToString().hex()
 
         with patch("NovaApi.nova_request.nova_request", return_value=output_hex) as call, \
-             patch("server.finder.time.sleep") as sleep:
+             patch("time.sleep") as sleep:
             reports = finder.scan_device_types()
         self.assertEqual(len(reports), len(pb.DeviceType.DESCRIPTOR.values))
         self.assertEqual(call.call_count, len(reports))
