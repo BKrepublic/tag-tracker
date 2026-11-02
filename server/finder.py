@@ -8,6 +8,7 @@ dicts with lat/lon/timestamp.
 import hashlib
 import importlib.util
 import json
+import re
 import sys
 import threading
 import types
@@ -87,9 +88,21 @@ def account_email() -> str:
     return get_cached_value("username") or ""
 
 
-def sign_in_with_oauth_token(oauth_token: str) -> str:
-    """Exchanges the 'oauth_token' cookie from accounts.google.com/EmbeddedSetup for a
-    long-lived token, exactly like GoogleFindMyTools' Chrome flow does."""
+class GoogleTokenExchangeError(RuntimeError):
+    """Safe-to-display token-exchange failure, without secrets or response dumps."""
+
+
+def prepare_google_sign_in() -> None:
+    """Set up the FCM Android identity before the short-lived cookie is copied."""
+    _ensure_imported()
+    from Auth.fcm_receiver import FcmReceiver
+
+    if not FcmReceiver().get_android_id():
+        raise RuntimeError("FCM Android device registration did not return an ID.")
+
+
+def sign_in_with_oauth_token(oauth_token: str, email: str = "") -> str:
+    """Exchange the one-time Google EmbeddedSetup cookie for a longer-lived AAS token."""
     _ensure_imported()
     import gpsoauth
     from Auth.fcm_receiver import FcmReceiver
@@ -98,11 +111,12 @@ def sign_in_with_oauth_token(oauth_token: str) -> str:
     android_id = FcmReceiver().get_android_id()
     if not android_id:
         raise RuntimeError("Could not register with Google (no network?). Please try again.")
-    resp = gpsoauth.exchange_token("", oauth_token, android_id)
+    resp = gpsoauth.exchange_token(email, oauth_token, android_id)
     if "Token" not in resp:
-        # 'BadAuthentication' here usually means the oauth_token was read before sign-in
-        # finished; the caller ignores it and retries with the final token.
-        raise RuntimeError(f"Google sign-in failed: {resp.get('Error', resp)}")
+        # Only show an alphanumeric Google error code; never print raw API responses.
+        raw_code = resp.get("Error", "NoToken") if isinstance(resp, dict) else "InvalidResponse"
+        code = raw_code if isinstance(raw_code, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", raw_code) else "UnknownError"
+        raise GoogleTokenExchangeError(f"Google token exchange rejected: {code}")
     set_cached_value("aas_token", resp["Token"])
     if "Email" in resp:
         set_cached_value("username", resp["Email"])

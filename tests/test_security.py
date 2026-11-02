@@ -116,17 +116,35 @@ class SecurityTests(unittest.TestCase):
         with patch("server.finder.auth_state", side_effect=[
             {"signed_in": False, "unlocked": False},
             {"signed_in": True, "unlocked": False},
-        ]), patch("server.finder.sign_in_with_oauth_token", return_value="user@example.test") as sign_in, \
+        ]), patch("server.finder.prepare_google_sign_in"), \
+             patch("builtins.input", return_value="user@example.test"), \
+             patch("server.finder.sign_in_with_oauth_token", return_value="user@example.test") as sign_in, \
              patch("server.finder.shared_key_url", return_value="https://accounts.google.com/encryption/unlock/android?kdi=test"), \
              patch("server.finder.save_vault_keys") as save, \
-             patch("server.manage.getpass.getpass", side_effect=["SUPER_SECRET_TOKEN", '{"finder_hw":[]}']), \
+             patch("server.manage.getpass.getpass", side_effect=["oauth2_4/SUPER_SECRET_TOKEN", '{"finder_hw":[]}']), \
              contextlib.redirect_stdout(captured):
             manage.google_manual_login()
-        sign_in.assert_called_once_with("SUPER_SECRET_TOKEN")
+        sign_in.assert_called_once_with("oauth2_4/SUPER_SECRET_TOKEN", email="user@example.test")
         save.assert_called_once_with('{"finder_hw":[]}')
         self.assertNotIn("SUPER_SECRET_TOKEN", captured.getvalue())
         self.assertNotIn('{"finder_hw":[]}', captured.getvalue())
         self.assertIn("capture", captured.getvalue())
+
+    def test_manual_login_reports_safe_google_error(self):
+        import contextlib
+        import io
+        from server import finder, manage
+        with patch("server.finder.auth_state", return_value={"signed_in": False, "unlocked": False}), \
+             patch("server.finder.prepare_google_sign_in"), \
+             patch("builtins.input", return_value="user@example.test"), \
+             patch("server.manage.getpass.getpass", return_value="oauth2_4/PRIVATE_COOKIE"), \
+             patch("server.finder.sign_in_with_oauth_token", side_effect=finder.GoogleTokenExchangeError(
+                 "Google token exchange rejected: BadAuthentication"
+             )), contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(SystemExit) as caught:
+                manage.google_manual_login()
+        self.assertIn("BadAuthentication", str(caught.exception))
+        self.assertNotIn("PRIVATE_COOKIE", str(caught.exception))
 
     def test_manual_auth_script_is_local_only(self):
         script = (Path(__file__).resolve().parents[1] / "tools" / "capture-vault-keys.js").read_text()

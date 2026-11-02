@@ -123,7 +123,13 @@ the independently verified two-part flow described by
 This command guides you through Google's `EmbeddedSetup` page and then the
 Find Hub encryption-unlock page. You copy one short-lived `oauth_token`
 cookie and one `vaultKeys` JSON value from your **own Chrome** into
-hidden local terminal prompts. The second step shows the entire source of
+hidden local terminal prompts. The tool registers its FCM device identity
+**before** the cookie is requested, prompts for your Google account email,
+and reports Google's non-secret error code on failure. The `oauth_token`
+value must start with `oauth2_4/`, is short-lived and single-use:
+you must obtain a **fresh** cookie each time an exchange fails. Keep the
+prompt open while signing in, and paste the cookie promptly.
+The second step shows the entire source of
 [`tools/capture-vault-keys.js`](tools/capture-vault-keys.js) for inspection
 before you paste it into **the Google page only**. It only intercepts the
 Google page's `setVaultSharedKeys` callback and displays the returned JSON

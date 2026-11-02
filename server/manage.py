@@ -61,8 +61,18 @@ def google_manual_login():
     state = finder.auth_state()
 
     if not state["signed_in"]:
-        print("\\nSTEP 1 — Google account")
-        print("Open this URL in your everyday Chrome:")
+        print("\nSTEP 1 — Google account")
+        print("Before opening the browser, preparing the device identity...")
+        try:
+            finder.prepare_google_sign_in()
+        except Exception as exc:
+            raise SystemExit(
+                f"Google device registration failed: {type(exc).__name__}. No login cookie was used."
+            ) from None
+        email = input("Find Hub Google account email: ").strip()
+        if "@" not in email:
+            raise SystemExit("Enter the email address of the account with your tag.")
+        print("Now open this URL in your everyday Chrome:")
         print("https://accounts.google.com/EmbeddedSetup")
         print("In that tab open DevTools (F12) > Application > Cookies >")
         print("https://accounts.google.com. Find the cookie named oauth_token.")
@@ -71,12 +81,18 @@ def google_manual_login():
         token = getpass.getpass("oauth_token (hidden): ").strip()
         if not token:
             raise SystemExit("No token supplied. Nothing was saved.")
+        if not token.startswith("oauth2_4/"):
+            raise SystemExit("Unexpected cookie format. Copy the full oauth_token Value (oauth2_4/...).")
         try:
-            finder.sign_in_with_oauth_token(token)
+            finder.sign_in_with_oauth_token(token, email=email)
+        except finder.GoogleTokenExchangeError as exc:
+            raise SystemExit(
+                f"{exc}. The cookie may be expired or already used; get a NEW cookie."
+            ) from None
         except Exception as exc:
             raise SystemExit(
-                "Google token exchange failed (possibly an expired cookie): "
-                + type(exc).__name__
+                "Token exchange failed before completion: " + type(exc).__name__
+                + ". The cookie may have been consumed. Get a fresh one after checking the error."
             ) from None
         finally:
             token = None
@@ -86,7 +102,7 @@ def google_manual_login():
             raise SystemExit("Account token was not saved; cannot continue.")
 
     if not state["unlocked"]:
-        print("\\nSTEP 2 — Unlock Find Hub end-to-end encryption")
+        print("\nSTEP 2 — Unlock Find Hub end-to-end encryption")
         print("Open this URL in your normal, already signed-in Chrome:")
         print(finder.shared_key_url().strip())
         print("Before entering your screen-lock PIN on that page,")
@@ -95,7 +111,7 @@ def google_manual_login():
         print("It does not make network requests; it displays the returned")
         print("vaultKeys JSON in a text box at the top of Google's page.")
         script_path = Path(__file__).resolve().parents[1] / "tools" / "capture-vault-keys.js"
-        print("\\n" + script_path.read_text(encoding="utf-8") + "\\n")
+        print("\n" + script_path.read_text(encoding="utf-8") + "\n")
         print("Then complete Google's unlock page. Copy the displayed JSON,")
         print("and paste it into the hidden prompt in kitty below.")
         vault_json = getpass.getpass("vaultKeys JSON (hidden): ").strip()
