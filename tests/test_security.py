@@ -186,6 +186,7 @@ class SecurityTests(unittest.TestCase):
 
     def test_tag_device_list_excludes_phones(self):
         from server import finder
+        finder._ensure_imported()  # vendored protobuf path is inserted lazily
         from ProtoDecoders import DeviceUpdate_pb2 as pb
 
         response = pb.DevicesList()
