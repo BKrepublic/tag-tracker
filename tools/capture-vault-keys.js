@@ -1,9 +1,11 @@
-// Run ONLY on Google's own https://accounts.google.com/encryption/unlock/android
-// page, after reviewing this code. No fetch, network requests, or external storage.
+// Run ONLY on Google's Find Hub encryption unlock or its PIN challenge page.
+// Inspect before pasting; it never sends data or stores it outside this page.
 (() => {
-  if (location.origin !== "https://accounts.google.com" ||
-      !location.pathname.startsWith("/encryption/unlock/android")) {
-    throw new Error("Wrong page: refusing to install the listener");
+  const unlock = location.pathname === "/encryption/unlock/android";
+  const pin = location.pathname === "/v3/signin/challenge/kls" &&
+      new URLSearchParams(location.search).get("flowName") === "EncryptionUnlockAndroid";
+  if (location.origin !== "https://accounts.google.com" || !(unlock || pin)) {
+    throw new Error("Wrong page: open the Find Hub encryption unlock / PIN challenge page.");
   }
   window.mm = {
     setVaultSharedKeys(_domain, vaultKeys) {

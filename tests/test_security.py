@@ -150,6 +150,8 @@ class SecurityTests(unittest.TestCase):
         script = (Path(__file__).resolve().parents[1] / "tools" / "capture-vault-keys.js").read_text()
         self.assertIn("setVaultSharedKeys", script)
         self.assertIn('location.origin !== "https://accounts.google.com"', script)
+        self.assertIn('location.pathname === "/v3/signin/challenge/kls"', script)
+        self.assertIn('new URLSearchParams(location.search).get("flowName") === "EncryptionUnlockAndroid"', script)
         for disallowed in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket("):
             self.assertNotIn(disallowed, script)
 

@@ -155,6 +155,14 @@ After successful authentication:
 
 Then open `http://127.0.0.1:8000` to inspect saved positions.
 The browser-based unlock flow must succeed before locations can be decrypted.
+Google may redirect to `/v3/signin/challenge/kls?flowName=EncryptionUnlockAndroid`
+to ask for the Android screen-lock PIN. Run the local-only console script **on
+that page before pressing Next**, not only on `/encryption/unlock/android`.
+If the PIN page freezes, this is also reported upstream in
+[GoogleFindMyTools issue #120](https://github.com/leonboe1/GoogleFindMyTools/issues/120)
+(especially with Google Workspace accounts). The script cannot repair Google's
+PIN confirmation server-side. Don't repeatedly retry the PIN or disable
+browser security features.
 
 ### Settings (environment variables)
 
