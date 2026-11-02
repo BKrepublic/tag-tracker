@@ -46,6 +46,11 @@ def _ensure_imported():
     # Keep Google tokens in our data dir instead of inside the vendored library.
     import Auth.token_cache as token_cache
     token_cache._get_secrets_file = lambda: str(GOOGLE_SECRETS_PATH)
+    # The upstream desktop login launcher kills other Chrome processes and
+    # disables Chrome's sandbox. Override that callable before signing in.
+    import Auth.auth_flow as auth_flow
+    from .safe_chrome import create_driver
+    auth_flow.create_driver = create_driver
     _imported = True
 
 
@@ -111,7 +116,10 @@ def import_secrets_file(src_path: str) -> dict:
     if not isinstance(data, dict) or not data.get("aas_token"):
         raise RuntimeError("This file isn't a valid Google login file (no account token found).")
     GOOGLE_SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if GOOGLE_SECRETS_PATH.is_symlink():
+        raise RuntimeError("Refusing to overwrite a symlinked secrets file")
     shutil.copyfile(src_path, GOOGLE_SECRETS_PATH)
+    GOOGLE_SECRETS_PATH.chmod(0o600)
     return auth_state()
 
 

@@ -89,6 +89,8 @@
   // Reverse-geocode a point to a short address (OpenStreetMap Nominatim), cached per ~11m.
   const addrCache = {};
   async function addressFor(lat, lon) {
+    // Never send raw location coordinates for reverse-geocoding without consent.
+    if (store.get('allowAddressLookup') !== '1') return '';
     const k = lat.toFixed(4) + ',' + lon.toFixed(4);
     if (addrCache[k] !== undefined) return addrCache[k];
     try {
@@ -300,6 +302,13 @@
     renderLatest(); loadHistory().catch(alert);
   });
   $('showPoints').addEventListener('change', () => loadHistory().catch(alert));
+  if ($('onlineAddress')) {
+    $('onlineAddress').checked = store.get('allowAddressLookup') === '1';
+    $('onlineAddress').addEventListener('change', (e) => {
+      store.set('allowAddressLookup', e.target.checked ? '1' : '0');
+      renderLatest();
+    });
+  }
   $('toggle').addEventListener('click', () => $('panel').classList.toggle('collapsed'));
   $('pollNow').addEventListener('click', async () => {
     try { await data.pollNow(); $('pollStatus').textContent = 'Checking Google for new locations…'; setTimeout(refresh, 15000); }

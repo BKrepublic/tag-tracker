@@ -3,11 +3,13 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/data
     environment:
       TT_POLL_MINUTES: "10"
+      # Container listens internally; host only exposes its loopback.
+      TT_HOST: "0.0.0.0"
       # Set to "1" once you serve the site over HTTPS
       TT_COOKIE_SECURE: "0"
       # Google Drive backup (see README). Leave empty to disable.

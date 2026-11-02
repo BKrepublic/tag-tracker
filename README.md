@@ -173,6 +173,21 @@ python -m server.manage users
 python -m server.manage poll             # fetch locations once
 ```
 
+## Security notes for the self-hosted Linux server
+
+The self-hosted Python server binds to `127.0.0.1:8000` by default; Docker Compose also
+publishes the port on host loopback only. This version hardens file permissions
+and invalidates sessions on account deletion/password reset. See [SECURITY-HARDENING.md](SECURITY-HARDENING.md)
+for the scope and remaining risks. The Android app has **not** been audited or hardened
+by this change.
+
+Reverse geocoding is **opt-in**; enabling "Online address lookup" shares tag
+coordinates with Nominatim. Map imagery still contacts the chosen tile provider
+(OpenStreetMap, Google, or Esri), which can observe map areas viewed.
+GoogleFindMyTools uses an unsupported Google API; sign-in and location retrieval
+may fail if Google changes it. Do not publicly expose the server without
+a properly configured HTTPS reverse proxy and additional safeguards.
+
 ## Legal, disclaimer & privacy
 
 **Not affiliated with Google.** Tag Tracker is an independent, open-source project — not created,

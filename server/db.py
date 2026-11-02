@@ -107,6 +107,16 @@ def check_login(username: str, password: str) -> bool:
     return verify_password(password, row["password_hash"])
 
 
+def session_proof(username: str, secret_key: str) -> str | None:
+    """Bind session validity to a currently existing user's password hash."""
+    with connect() as c:
+        row = c.execute("SELECT password_hash FROM users WHERE username=?", (username,)).fetchone()
+    if row is None:
+        return None
+    message = (username + "\0" + row["password_hash"]).encode("utf-8")
+    return hmac.new(secret_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
 def user_count() -> int:
     with connect() as c:
         return c.execute("SELECT COUNT(*) FROM users").fetchone()[0]

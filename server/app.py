@@ -1,5 +1,6 @@
 import csv
 import io
+import hmac
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -12,7 +13,7 @@ from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import backup, db, poller
-from .config import COOKIE_SECURE, POLL_MINUTES, POLLING_ENABLED, ROOT, SECRET_KEY, SESSION_DAYS
+from .config import COOKIE_SECURE, DATA_DIR, POLL_MINUTES, POLLING_ENABLED, ROOT, SECRET_KEY, SESSION_DAYS
 
 WEB_DIR = ROOT / "web"
 
@@ -40,7 +41,10 @@ app.add_middleware(
 
 def require_user(request: Request) -> str:
     user = request.session.get("user")
-    if not user:
+    proof = request.session.get("auth_proof")
+    expected = db.session_proof(user, SECRET_KEY) if isinstance(user, str) else None
+    if not expected or not isinstance(proof, str) or not hmac.compare_digest(proof, expected):
+        request.session.clear()
         raise HTTPException(401, "Not logged in")
     return user
 
@@ -66,7 +70,10 @@ def login(body: LoginBody, request: Request):
         _failed[ip].append(now)
         raise HTTPException(401, "Wrong username or password")
     _failed.pop(ip, None)
-    request.session["user"] = body.username.strip()
+    username = body.username.strip()
+    request.session.clear()
+    request.session["user"] = username
+    request.session["auth_proof"] = db.session_proof(username, SECRET_KEY)
     return {"ok": True}
 
 
@@ -83,7 +90,7 @@ def me(user: str = Depends(require_user)):
 
 # ---------- data ----------
 
-_GUARD_FILE = ROOT / "data" / "guard.flag"
+_GUARD_FILE = DATA_DIR / "guard.flag"
 
 
 def _guard_get() -> bool:
@@ -186,7 +193,9 @@ def history(device_id: str, start: int, end: int, format: str = "json", user: st
 
 @app.get("/")
 def index(request: Request):
-    if not request.session.get("user"):
+    try:
+        require_user(request)
+    except HTTPException:
         return RedirectResponse("/login")
     return FileResponse(WEB_DIR / "index.html")
 
