@@ -76,13 +76,28 @@ Want to try the map before connecting your tag? Run `python -m server.manage dem
 
 ### Linux / Raspberry Pi / VPS
 
+The Linux installer is **read-only by default**: `sh setup.sh` prints the
+steps without installing anything. Review the source first and explicitly
+opt in with `sh setup.sh --install` to clone a pinned GoogleFindMyTools
+commit and install Python wheels into the local `.venv`. It never requires
+`sudo` and does not log in to Google. The Python dependencies still use
+version ranges, not a fully hash-pinned lockfile; install only if you accept
+that residual supply-chain risk.
+
 ```sh
 sh setup.sh
+# After reviewing the commands and their security implications:
+sh setup.sh --install
+.venv/bin/python -m unittest discover -s tests -v
 .venv/bin/python -m server.manage adduser myname
-# Headless machines have no Chrome. Run google-login on your Windows PC,
-# then copy data/google_secrets.json into this machine's data/ folder.
+# Google sign-in is a separate, sensitive step. Review SECURITY-HARDENING.md first.
+.venv/bin/python -m server.manage google-login
 .venv/bin/python -m server
 ```
+
+The server listens on `127.0.0.1:8000` by default. In a headless
+environment, conduct the Google sign-in on a trusted computer and transfer
+`data/google_secrets.json` **securely** if you decide to use it.
 
 Or use Docker: `docker compose up -d`, then run `docker compose exec tracker python -m server.manage adduser myname`.
 

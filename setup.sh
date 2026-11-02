@@ -1,18 +1,65 @@
 #!/usr/bin/env sh
-# One-time setup on Linux / macOS / Raspberry Pi. Run from the project folder: sh setup.sh
-set -e
-GFMT_COMMIT=d46e9528578015b51d3b84dd91bf8f16e9ab850f
+# Linux / macOS / Raspberry Pi installer. No side effects unless --install is passed.
+set -eu
 
-[ -d vendor/GoogleFindMyTools ] || git clone https://github.com/leonboe1/GoogleFindMyTools vendor/GoogleFindMyTools
+GFMT_COMMIT=d46e9528578015b51d3b84dd91bf8f16e9ab850f
+UPSTREAM=https://github.com/leonboe1/GoogleFindMyTools
+
+if [ "${1:-}" != "--install" ] || [ "$#" -ne 1 ]; then
+    cat <<EOF
+Tag Tracker local setup (no changes made).
+To install, inspect setup.sh and requirements first, then run:
+  sh setup.sh --install
+
+This command will:
+  - clone GoogleFindMyTools and check out pinned commit $GFMT_COMMIT
+  - create the local .venv if missing
+  - install pre-built Python wheels into .venv (no source builds)
+
+No sudo, Google login, browser launch, or server startup.
+Python dependencies are not fully hash-pinned. Review SECURITY-HARDENING.md.
+EOF
+    exit 0
+fi
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Refusing to run the installer as root." >&2
+    exit 1
+fi
+
+if [ ! -f requirements.txt ] || [ ! -f server/manage.py ]; then
+    echo "Run this command from the tag-tracker repository root." >&2
+    exit 1
+fi
+
+mkdir -p vendor
+if [ -e vendor/GoogleFindMyTools ] && [ ! -d vendor/GoogleFindMyTools/.git ]; then
+    echo "Existing vendor/GoogleFindMyTools is not a Git clone; refusing to overwrite it." >&2
+    exit 1
+fi
+
+if [ ! -d vendor/GoogleFindMyTools ]; then
+    git clone "$UPSTREAM" vendor/GoogleFindMyTools
+fi
+
+origin=$(git -C vendor/GoogleFindMyTools remote get-url origin)
+if [ "$origin" != "$UPSTREAM" ] && [ "$origin" != "$UPSTREAM.git" ]; then
+    echo "Unexpected GoogleFindMyTools origin: $origin" >&2
+    exit 1
+fi
 git -C vendor/GoogleFindMyTools fetch --quiet origin
 git -C vendor/GoogleFindMyTools checkout --quiet "$GFMT_COMMIT"
+if [ "$(git -C vendor/GoogleFindMyTools rev-parse HEAD)" != "$GFMT_COMMIT" ]; then
+    echo "Pinned GoogleFindMyTools checkout failed." >&2
+    exit 1
+fi
 
-[ -d .venv ] || python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -r requirements.txt -r vendor/GoogleFindMyTools/requirements.txt
+if [ ! -d .venv ]; then
+    python3 -m venv .venv
+fi
+.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt -r vendor/GoogleFindMyTools/requirements.txt
+.venv/bin/python -m pip check
 
 echo
-echo "Setup done. Next steps:"
-echo "  1) .venv/bin/python -m server.manage adduser <your-name>"
-echo "  2) .venv/bin/python -m server.manage google-login   (needs Chrome, or copy data/google_secrets.json from a PC)"
-echo "  3) .venv/bin/python -m server"
+echo "Dependencies installed in .venv. No Google sign-in was performed."
+echo "Before signing in, run: .venv/bin/python -m unittest discover -s tests -v"
