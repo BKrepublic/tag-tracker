@@ -3,12 +3,16 @@ name: Linux server security tests
 on:
   push:
     paths:
+      - "setup.sh"
+      - "requirements.txt"
       - "server/**"
       - "web/**"
       - "tests/**"
       - ".github/workflows/security-tests.yml"
   pull_request:
     paths:
+      - "setup.sh"
+      - "requirements.txt"
       - "server/**"
       - "web/**"
       - "tests/**"
@@ -20,18 +24,27 @@ permissions:
 jobs:
   security-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - name: Verify default installer has no side effects
         run: |
           sh -n setup.sh
           sh setup.sh
           test ! -d .venv
           test ! -d vendor
-      - name: Install test requirements
-        run: python -m pip install -r requirements.txt httpx
+      - name: Install Linux dependencies (explicitly, without login)
+        run: sh setup.sh --install
+      - name: Confirm unused sensitive dependencies are excluded
+        run: |
+          .venv/bin/python -m pip check
+          ! .venv/bin/python -m pip show undetected-chromedriver
+          ! .venv/bin/python -m pip show frida
       - name: Run offline regression tests
-        run: python -m unittest discover -s tests -v
+        run: .venv/bin/python -m unittest discover -s tests -v

@@ -82,7 +82,11 @@ opt in with `sh setup.sh --install` to clone a pinned GoogleFindMyTools
 commit and install Python wheels into the local `.venv`. It never requires
 `sudo` and does not log in to Google. The Python dependencies still use
 version ranges, not a fully hash-pinned lockfile; install only if you accept
-that residual supply-chain risk.
+that residual supply-chain risk. The installer skips unnecessary upstream
+`undetected-chromedriver` and `frida`. Linux Google sign-in uses Selenium
+with an explicitly installed, matching browser and chromedriver. On CachyOS
+the official `chromium` package contains both. No browser or driver is
+installed automatically.
 
 ```sh
 sh setup.sh

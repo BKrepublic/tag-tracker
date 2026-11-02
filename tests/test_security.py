@@ -57,21 +57,29 @@ class SecurityTests(unittest.TestCase):
             db.upsert_user("reset-test", "new-password-456")
             self.assertEqual(client.get("/api/me").status_code, 401)
 
-    def test_safe_browser_does_not_request_no_sandbox(self):
-        seen = []
-        class Options:
-            def __init__(self):
-                self.args = []
-            def add_argument(self, value):
-                self.args.append(value)
-        def fake_chrome(**kwargs):
-            seen.append(kwargs)
-            return object()
-        fake_uc = types.SimpleNamespace(ChromeOptions=Options, Chrome=fake_chrome)
-        with patch.dict(sys.modules, {"undetected_chromedriver": fake_uc}):
-            create_driver()
-        self.assertEqual(len(seen), 1)
-        self.assertNotIn("--no-sandbox", seen[0]["options"].args)
+    def test_safe_browser_requires_explicit_driver(self):
+        with patch("server.safe_chrome.shutil.which", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "Matching Chromium"):
+                create_driver()
+
+    def test_safe_browser_rejects_mismatched_versions(self):
+        def fake_version(args, **kwargs):
+            if args[0].endswith("chromium"):
+                return "Chromium 156.0.8000.1"
+            return "ChromeDriver 155.0.8000.1"
+        with patch("server.safe_chrome.shutil.which", side_effect=lambda name: "/usr/bin/" + name):
+            with patch("server.safe_chrome.subprocess.check_output", side_effect=fake_version):
+                with self.assertRaisesRegex(RuntimeError, "major versions differ"):
+                    create_driver()
+
+    def test_upstream_auth_imports_use_safe_driver(self):
+        from server import finder
+        finder._ensure_imported()  # import only: no Google network request
+        from Auth import auth_flow
+        from KeyBackup import shared_key_flow
+        self.assertIs(auth_flow.create_driver, create_driver)
+        self.assertIs(shared_key_flow.create_driver, create_driver)
+        self.assertNotIn("undetected_chromedriver", sys.modules)
 
 
 if __name__ == "__main__":

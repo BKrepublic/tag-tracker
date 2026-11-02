@@ -15,9 +15,10 @@ security audit, nor a guarantee that Google account access is safe.
 - Signed sessions are bound to the user's current password hash using a
   server-side HMAC. Deleting a user or resetting their password invalidates
   existing browser sessions, including the web index route.
-- The desktop Google login overrides the pinned GoogleFindMyTools' unsafe
-  Chrome launcher without editing vendored source: it does not `pkill` Chrome
-  and does not explicitly pass `--no-sandbox`.
+- The desktop Google login uses standard Selenium with an **explicitly installed
+  matching system ChromeDriver**. The vendored browser launcher (which kills
+  Chrome and disables the sandbox) is never imported. The app does not
+  automatically download a ChromeDriver executable.
 - Nominatim reverse geocoding is off by default. It can be enabled in the
   web UI with an explicit checkbox.
 - Minimum polling interval is five minutes, to avoid inadvertent very
@@ -30,10 +31,12 @@ security audit, nor a guarantee that Google account access is safe.
   protect against programs running as the same user, root, malware, or backups.
   If the host is shared or untrusted, avoid signing in with a valuable
   Google account.
-- Chrome sign-in still uses **undetected-chromedriver**; disabling sandbox
-  is no longer requested by this launcher, but dependency behavior and
-  Chromium security must be evaluated separately. The real sign-in flow
-  has not been tested with Google.
+- Standard ChromeDriver automation may be blocked by Google. The real sign-in
+  flow has not been tested. The official CachyOS/Arch `chromium` package
+  contains both the browser and a matching `chromedriver`.
+- Linux setup excludes upstream `undetected-chromedriver` and `frida`, which
+  are not needed for Tag Tracker location retrieval; upstream sources
+  remain pinned and unchanged.
 - GoogleFindMyTools uses a **private, unsupported Google API**. Google could
   restrict access or change its behavior at any time.
 - The unresolved `python-ecdsa` timing side-channel advisory and
@@ -53,5 +56,7 @@ Run `python -m unittest discover -s tests -v` from the repository root after
 installing its regular Python dependencies. The tests only use a temporary
 database and mock the Chrome launcher.
 
-The `setup.sh` installer and upstream dependencies were not rewritten here.
+The Linux installer now skips two unnecessary upstream dependencies, uses
+binary wheels, and is tested in CI across supported Python versions. Other
+dependencies still use open version ranges, not hash-pinned lock files.
 No Google login or live tag polling was performed for this change.

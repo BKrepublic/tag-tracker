@@ -46,11 +46,13 @@ def _ensure_imported():
     # Keep Google tokens in our data dir instead of inside the vendored library.
     import Auth.token_cache as token_cache
     token_cache._get_secrets_file = lambda: str(GOOGLE_SECRETS_PATH)
-    # The upstream desktop login launcher kills other Chrome processes and
-    # disables Chrome's sandbox. Override that callable before signing in.
-    import Auth.auth_flow as auth_flow
+    # Upstream chrome_driver imports undetected_chromedriver at module load.
+    # Register a safe launcher before upstream auth or key retrieval imports it.
+    # On Android the non-browser authentication path stays unchanged.
     from .safe_chrome import create_driver
-    auth_flow.create_driver = create_driver
+    chrome_driver = types.ModuleType("chrome_driver")
+    chrome_driver.create_driver = create_driver
+    sys.modules["chrome_driver"] = chrome_driver
     _imported = True
 
 

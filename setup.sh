@@ -15,6 +15,7 @@ This command will:
   - clone GoogleFindMyTools and check out pinned commit $GFMT_COMMIT
   - create the local .venv if missing
   - install pre-built Python wheels into .venv (no source builds)
+  - exclude the upstream stealth driver and Frida instrumentation dependency
 
 No sudo, Google login, browser launch, or server startup.
 Python dependencies are not fully hash-pinned. Review SECURITY-HARDENING.md.
@@ -57,7 +58,20 @@ fi
 if [ ! -d .venv ]; then
     python3 -m venv .venv
 fi
-.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt -r vendor/GoogleFindMyTools/requirements.txt
+# The pinned upstream lists a source-only stealth driver and Frida instrumentation.
+# Neither is required for Tag Tracker's location retrieval. Filter those two
+# requirements in a temporary copy, without editing vendored sources.
+vendor_req=$(mktemp)
+trap 'rm -f "$vendor_req"' EXIT HUP INT TERM
+while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+        undetected-chromedriver\>=*|frida\>=*) continue ;;
+        -*|git+*|http://*|https://*) echo "Unsupported upstream requirement: $line" >&2; exit 1 ;;
+        *) printf '%s\n' "$line" >> "$vendor_req" ;;
+    esac
+done < vendor/GoogleFindMyTools/requirements.txt
+
+.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt -r "$vendor_req"
 .venv/bin/python -m pip check
 
 echo

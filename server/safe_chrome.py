@@ -1,11 +1,43 @@
-"""Conservative Chrome launcher for the desktop Google Find Hub sign-in.
+"""Conservative desktop Chrome launcher.
 
-Unlike the pinned upstream chrome_driver.py, this launcher does not kill other
-Chrome sessions or explicitly disable the browser sandbox.
+Use standard Selenium and an explicitly installed system ChromeDriver.
+Do not kill processes, disable sandbox, or download executable drivers.
+Live Google sign-in has not been tested.
 """
-def create_driver():
-    import undetected_chromedriver as uc
+import re
+import shutil
+import subprocess
 
-    options = uc.ChromeOptions()
+
+def _major(binary: str) -> str:
+    try:
+        output = subprocess.check_output([binary, "--version"], text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"Cannot check browser/driver version: {binary}") from exc
+    match = re.search(r"\b(\d+)\.\d+\.", output)
+    if not match:
+        raise RuntimeError(f"Unrecognized version from {binary}")
+    return match.group(1)
+
+
+def create_driver():
+    browser = shutil.which("chromium") or shutil.which("google-chrome")
+    driver = shutil.which("chromedriver")
+    if not browser or not driver:
+        raise RuntimeError(
+            "Matching Chromium/Chrome and chromedriver are required. "
+            "On CachyOS, the Arch 'chromium' package provides both. "
+            "Nothing has been downloaded or installed automatically."
+        )
+    if _major(browser) != _major(driver):
+        raise RuntimeError(
+            "Chrome/Chromium and chromedriver major versions differ; update them together."
+        )
+
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+
+    options = webdriver.ChromeOptions()
+    options.binary_location = browser
     options.add_argument("--start-maximized")
-    return uc.Chrome(options=options, version_main=None)
+    return webdriver.Chrome(service=Service(executable_path=driver), options=options)
