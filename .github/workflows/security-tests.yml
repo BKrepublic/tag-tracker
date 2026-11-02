@@ -1,0 +1,31 @@
+name: Linux server security tests
+
+on:
+  push:
+    paths:
+      - "server/**"
+      - "web/**"
+      - "tests/**"
+      - ".github/workflows/security-tests.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - "web/**"
+      - "tests/**"
+      - ".github/workflows/security-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test requirements
+        run: python -m pip install -r requirements.txt httpx
+      - name: Run offline regression tests
+        run: python -m unittest discover -s tests -v
