@@ -46,5 +46,7 @@ jobs:
           .venv/bin/python -m pip check
           ! .venv/bin/python -m pip show undetected-chromedriver
           ! .venv/bin/python -m pip show frida
+          ! .venv/bin/python -m pip show pyscrypt
+          .venv/bin/python -m pip show http_ece
       - name: Run offline regression tests
         run: .venv/bin/python -m unittest discover -s tests -v

@@ -16,6 +16,7 @@ This command will:
   - create the local .venv if missing
   - install pre-built Python wheels into .venv (no source builds)
   - exclude upstream stealth driver, Frida and source-only pyscrypt
+  - install audited, vendored http_ece wheel (Git object checked)
 
 No sudo, Google login, browser launch, or server startup.
 Python dependencies are not fully hash-pinned. Review SECURITY-HARDENING.md.
@@ -65,13 +66,22 @@ vendor_req=$(mktemp)
 trap 'rm -f "$vendor_req"' EXIT HUP INT TERM
 while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in
-        undetected-chromedriver\>=*|frida\>=*|pyscrypt\>=*) continue ;;
+        undetected-chromedriver\>=*|frida\>=*|pyscrypt\>=*|http_ece\>=*) continue ;;
         -*|git+*|http://*|https://*) echo "Unsupported upstream requirement: $line" >&2; exit 1 ;;
         *) printf '%s\n' "$line" >> "$vendor_req" ;;
     esac
 done < vendor/GoogleFindMyTools/requirements.txt
 
-.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt -r "$vendor_req"
+# PyPI publishes http_ece only as a source archive. Use the pure-Python
+# wheel already audited with the Android build, and verify its exact Git blob.
+ece_wheel=android/app/wheels/http_ece-1.2.1-py2.py3-none-any.whl
+ece_blob=e37e573977a368292c312247ce6ac174548875db
+if [ ! -f "$ece_wheel" ] || [ "$(git hash-object "$ece_wheel")" != "$ece_blob" ]; then
+    echo "Vendored http_ece wheel is missing or does not match the reviewed Git blob." >&2
+    exit 1
+fi
+
+.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt -r "$vendor_req" "$ece_wheel"
 .venv/bin/python -m pip check
 
 echo

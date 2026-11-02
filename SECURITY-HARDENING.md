@@ -35,8 +35,12 @@ security audit, nor a guarantee that Google account access is safe.
   flow has not been tested. The official CachyOS/Arch `chromium` package
   contains both the browser and a matching `chromedriver`.
 - Linux setup excludes upstream `undetected-chromedriver` and `frida`.
-  The source-only `pyscrypt` package is replaced with the standard-library
-  `hashlib.scrypt` implementation (RFC 7914). Vendored sources remain pinned.
+  Source-only `pyscrypt` is replaced by `hashlib.scrypt` (RFC 7914).
+  Source-only `http_ece` is installed from the existing, pure-Python
+  Android wheel, verifying Git blob `e37e573977a368292c312247ce6ac174548875db`
+  first. Its wheel archive differs from PyPI's distribution, even though
+  the earlier source-level review found its Python code identical; wheel
+  provenance is a residual supply-chain risk. Vendored sources stay pinned.
 - GoogleFindMyTools uses a **private, unsupported Google API**. Google could
   restrict access or change its behavior at any time.
 - The unresolved `python-ecdsa` timing side-channel advisory and
@@ -56,7 +60,7 @@ Run `python -m unittest discover -s tests -v` from the repository root after
 installing its regular Python dependencies. The tests only use a temporary
 database and mock the Chrome launcher.
 
-The Linux installer now skips three upstream dependencies, uses
-binary wheels, and is tested in CI across supported Python versions. Other
+The Linux installer now skips four upstream dependencies, verifies one
+vendored pure-Python wheel, and tests installation in CI across Python versions. Other
 dependencies still use open version ranges, not hash-pinned lock files.
 No Google login or live tag polling was performed for this change.
