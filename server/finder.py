@@ -197,6 +197,55 @@ def list_trackers() -> list[tuple[str, str]]:
     return result
 
 
+def scan_device_types() -> list[dict]:
+    """Read-only: ask every known Nova device type once and report safe counts.
+
+    This never registers, deletes or locates a device. Seven API requests with
+    one-second spacing prevent a burst. Do not display canonical IDs or tokens.
+    """
+    import time
+    _ensure_imported()
+    from NovaApi.nova_request import nova_request
+    from NovaApi.scopes import NOVA_LIST_DEVICS_API_SCOPE
+    from NovaApi.util import generate_random_uuid
+    from ProtoDecoders import DeviceUpdate_pb2 as pb
+    from ProtoDecoders.decoder import parse_device_list_protobuf
+    from .proto_compat import inspect_device
+
+    enum_types = list(pb.DeviceType.DESCRIPTOR.values)
+    summaries = []
+    for index, value in enumerate(enum_types):
+        if index:
+            time.sleep(1.0)
+        request = pb.DevicesListRequest()
+        request.deviceListRequestPayload.type = value.number
+        request.deviceListRequestPayload.id = generate_random_uuid()
+        try:
+            answer = nova_request(NOVA_LIST_DEVICS_API_SCOPE, request.SerializeToString().hex())
+            if not answer:
+                raise RuntimeError("empty API response")
+            parsed = parse_device_list_protobuf(answer)
+            entries = [inspect_device(d) for d in parsed.deviceMetadata]
+            summaries.append({
+                "type": value.name,
+                "entries": len(entries),
+                "android": sum(d["kind"] == "ANDROID" for d in entries),
+                "spot": sum(d["kind"] == "SPOT" for d in entries),
+                "candidates": sum(d["candidate"] for d in entries),
+                "unnamed": sum(d["name"] == "(unnamed)" for d in entries),
+                "error": None,
+            })
+        except Exception as exc:
+            # The API may reject some categories. Never include raw responses
+            # or exception contents (they might contain private identifiers).
+            summaries.append({
+                "type": value.name, "entries": 0, "android": 0,
+                "spot": 0, "candidates": 0, "unnamed": 0,
+                "error": type(exc).__name__,
+            })
+    return summaries
+
+
 def _on_fcm_message(hex_string: str):
     from ProtoDecoders.decoder import parse_device_update_protobuf
 

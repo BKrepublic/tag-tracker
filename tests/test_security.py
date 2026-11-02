@@ -184,6 +184,27 @@ class SecurityTests(unittest.TestCase):
         self.assertIsNone(receiver._handle_data_message({"subtype": "expected", "invalid": True}))
         self.assertEqual(receiver.calls, 2)
 
+    def test_read_only_scan_all_device_categories_without_leaking_ids(self):
+        from server import finder
+        finder._ensure_imported()
+        from ProtoDecoders import DeviceUpdate_pb2 as pb
+
+        response = pb.DevicesList()
+        tag = response.deviceMetadata.add()
+        tag.userDefinedDeviceName = "Loshall Tag"
+        tag.identifierInformation.type = pb.IDENTIFIER_SPOT
+        tag.identifierInformation.canonicIds.canonicId.add().id = "PRIVATE_CANONICAL_ID"
+        output_hex = response.SerializeToString().hex()
+
+        with patch("NovaApi.nova_request.nova_request", return_value=output_hex) as call, \
+             patch("server.finder.time.sleep") as sleep:
+            reports = finder.scan_device_types()
+        self.assertEqual(len(reports), len(pb.DeviceType.DESCRIPTOR.values))
+        self.assertEqual(call.call_count, len(reports))
+        self.assertEqual(sleep.call_count, len(reports) - 1)
+        self.assertTrue(all(r["spot"] == 1 and r["candidates"] == 1 for r in reports))
+        self.assertNotIn("PRIVATE_CANONICAL_ID", str(reports))
+
     def test_unknown_field_fallback_identifies_unnamed_fastpair_tag(self):
         from server import finder
         finder._ensure_imported()

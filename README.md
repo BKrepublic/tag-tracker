@@ -154,7 +154,13 @@ and requires encrypted tracker identity data before treating such an entry as
 a location candidate. For a safe inspection without exposing device IDs, run
 `devices --inspect`; inspect reports the presence of hidden UUIDs and encrypted
 identity data, not their contents. If there are no candidates, no location
-request can be made by this client.
+request can be made by this client. As a follow-up diagnostic, run
+`devices --scan`: this makes seven *read-only* Google Nova list requests
+(one for every known device category, spaced one second apart) and prints
+only device counts and identifier-type counts, never IDs, key material or
+locations. This distinguishes a category mismatch from a list API response
+that simply does not contain the tag; it does **not** guarantee that any
+category will return the missing device. Do not repeatedly re-pair the tag.
 
 ```sh
 .venv/bin/python -m server.manage devices --inspect

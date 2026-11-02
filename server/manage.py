@@ -6,6 +6,7 @@
   python -m server.manage google-login           automated Chrome sign-in (may be rejected)
   python -m server.manage google-manual-login    sign in using normal Chrome, without driver
   python -m server.manage devices [--inspect]    show device types / safe metadata (no IDs)
+  python -m server.manage devices --scan         read-only scan of 7 Nova device categories
   python -m server.manage poll                   fetch tag locations once and exit
   python -m server.manage demo                   add a fake tag with 1 year of sample history
   python -m server.manage backup                 upload a backup to Google Drive now
@@ -204,6 +205,19 @@ def main(argv):
                       f" alternative_registration={d['alt_registration']}")
         print(f"Total: {len(devices)} device entries."
               f" Location candidates: {sum(d['candidate'] for d in devices)}.")
+    elif cmd == "devices" and args == ["--scan"]:
+        from . import finder
+        print("Read-only Nova device category scan (7 API calls, one-second spacing).")
+        for entry in finder.scan_device_types():
+            if entry["error"]:
+                print(f"{entry['type']}: error={entry['error']}")
+            else:
+                print(
+                    f"{entry['type']}: entries={entry['entries']} "
+                    f"ANDROID={entry['android']} SPOT={entry['spot']} "
+                    f"candidates={entry['candidates']} unnamed={entry['unnamed']}"
+                )
+        print("No canonical IDs, auth tokens or location reports were printed.")
     elif cmd == "poll":
         from . import poller
         poller.poll_once()
