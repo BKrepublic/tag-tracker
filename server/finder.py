@@ -175,10 +175,11 @@ def _device_list():
 
 def list_device_summary() -> list[dict]:
     """Return device names/types only; never expose canonical IDs or credentials."""
+    device_list = _device_list()  # loads the vendored protobuf module first
     from ProtoDecoders import DeviceUpdate_pb2
 
     result = []
-    for device in _device_list().deviceMetadata:
+    for device in device_list.deviceMetadata:
         info = device.identifierInformation
         kind = {
             DeviceUpdate_pb2.IDENTIFIER_ANDROID: "ANDROID",
@@ -196,10 +197,11 @@ def list_device_summary() -> list[dict]:
 
 def list_trackers() -> list[tuple[str, str]]:
     """Return only real SPOT tags, not Android phones/tablets."""
+    device_list = _device_list()  # loads the vendored protobuf module first
     from ProtoDecoders import DeviceUpdate_pb2
 
     result = []
-    for device in _device_list().deviceMetadata:
+    for device in device_list.deviceMetadata:
         if device.identifierInformation.type != DeviceUpdate_pb2.IDENTIFIER_SPOT:
             continue
         for item in device.identifierInformation.canonicIds.canonicId:
