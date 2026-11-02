@@ -34,6 +34,8 @@ security audit, nor a guarantee that Google account access is safe.
 - Standard ChromeDriver automation may be blocked by Google. The real sign-in
   flow has not been tested. The official CachyOS/Arch `chromium` package
   contains both the browser and a matching `chromedriver`.
+  The loader also recognizes AUR Chrome's `google-chrome-stable` executable;
+  Chrome alone is not sufficient without an explicitly installed matching driver.
 - Linux setup excludes upstream `undetected-chromedriver` and `frida`.
   Source-only `pyscrypt` is replaced by `hashlib.scrypt` (RFC 7914).
   Source-only `http_ece` is installed from the existing, pure-Python

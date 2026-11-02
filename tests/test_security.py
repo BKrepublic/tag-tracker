@@ -57,6 +57,17 @@ class SecurityTests(unittest.TestCase):
             db.upsert_user("reset-test", "new-password-456")
             self.assertEqual(client.get("/api/me").status_code, 401)
 
+    def test_detects_arch_google_chrome_stable(self):
+        from server.safe_chrome import _select_browser_binary
+
+        def fake_which(name):
+            return "/usr/bin/google-chrome-stable" if name == "google-chrome-stable" else None
+
+        with patch("server.safe_chrome.shutil.which", side_effect=fake_which):
+            self.assertEqual(_select_browser_binary(), "/usr/bin/google-chrome-stable")
+            with self.assertRaisesRegex(RuntimeError, "Matching Chromium"):
+                create_driver()
+
     def test_safe_browser_requires_explicit_driver(self):
         with patch("server.safe_chrome.shutil.which", return_value=None):
             with self.assertRaisesRegex(RuntimeError, "Matching Chromium"):

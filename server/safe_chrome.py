@@ -20,8 +20,18 @@ def _major(binary: str) -> str:
     return match.group(1)
 
 
+def _select_browser_binary():
+    # Arch/CachyOS AUR google-chrome installs google-chrome-stable,
+    # not necessarily google-chrome.
+    for name in ("chromium", "google-chrome-stable", "google-chrome"):
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
 def create_driver():
-    browser = shutil.which("chromium") or shutil.which("google-chrome")
+    browser = _select_browser_binary()
     driver = shutil.which("chromedriver")
     if not browser or not driver:
         raise RuntimeError(
