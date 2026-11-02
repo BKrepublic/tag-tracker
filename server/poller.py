@@ -20,6 +20,13 @@ def poll_once() -> int:
     status["running"] = True
     try:
         trackers = finder.list_trackers()
+        if not trackers:
+            status["last_error"] = (
+                "Google returned no SPOT tags. Run 'python -m server.manage devices' "
+                "to inspect the device types."
+            )
+            print(f"[poller] {status['last_error']}")
+            return 0
         for name, canonic_id in trackers:
             db.upsert_device(canonic_id, name)
             try:

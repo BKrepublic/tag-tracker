@@ -5,6 +5,7 @@
   python -m server.manage users
   python -m server.manage google-login           automated Chrome sign-in (may be rejected)
   python -m server.manage google-manual-login    sign in using normal Chrome, without driver
+  python -m server.manage devices                show Google device names/types (no IDs)
   python -m server.manage poll                   fetch tag locations once and exit
   python -m server.manage demo                   add a fake tag with 1 year of sample history
   python -m server.manage backup                 upload a backup to Google Drive now
@@ -188,6 +189,14 @@ def main(argv):
         google_login()
     elif cmd == "google-manual-login" and not args:
         google_manual_login()
+    elif cmd == "devices" and not args:
+        from . import finder
+        devices = finder.list_device_summary()
+        if not devices:
+            print("Google returned no devices for this account.")
+        for d in devices:
+            print(f"{d['kind']:8} {d['name']!r} ({d['ids']} canonical IDs)")
+        print(f"Total: {len(devices)} device entries. Only SPOT devices are tags.")
     elif cmd == "poll":
         from . import poller
         poller.poll_once()

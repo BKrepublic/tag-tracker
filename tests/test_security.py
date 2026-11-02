@@ -146,6 +146,68 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("BadAuthentication", str(caught.exception))
         self.assertNotIn("PRIVATE_COOKIE", str(caught.exception))
 
+
+    def test_fcm_compat_fixes_padding_and_skips_unrelated_pushes(self):
+        from server.fcm_compat import _normalize_header, install_fcm_patch
+        import binascii
+        self.assertEqual(_normalize_header("abC;p256ecdsa=def"), "abC=")
+        self.assertEqual(_normalize_header("abcdefgh"), "abcdefgh")
+
+        class FakeReceiver:
+            _decrypt_raw_data = staticmethod(
+                lambda credentials, ck, salt, raw: (ck, salt, raw)
+            )
+
+            def __init__(self):
+                self.credentials = {"gcm": {"app_id": "expected"}}
+                self.calls = 0
+
+            def _app_data_by_key(self, msg, key, do_not_raise=False):
+                return msg.get(key, "")
+
+            def _handle_data_message(self, msg):
+                self.calls += 1
+                if msg.get("invalid"):
+                    raise binascii.Error("Incorrect padding")
+                return "received"
+
+        install_fcm_patch(FakeReceiver)
+        install_fcm_patch(FakeReceiver)  # idempotent
+        self.assertEqual(
+            FakeReceiver._decrypt_raw_data({}, "A-B;p=xyz", "abcd", b"x"),
+            ("A-B=", "abcd", b"x"),
+        )
+        receiver = FakeReceiver()
+        self.assertIsNone(receiver._handle_data_message({"subtype": "foreign"}))
+        self.assertEqual(receiver.calls, 0)
+        self.assertEqual(receiver._handle_data_message({"subtype": "expected"}), "received")
+        self.assertIsNone(receiver._handle_data_message({"subtype": "expected", "invalid": True}))
+        self.assertEqual(receiver.calls, 2)
+
+    def test_tag_device_list_excludes_phones(self):
+        from server import finder
+        from ProtoDecoders import DeviceUpdate_pb2 as pb
+
+        response = pb.DevicesList()
+        phone = response.deviceMetadata.add()
+        phone.userDefinedDeviceName = "Jelly Star"
+        phone.identifierInformation.type = pb.IDENTIFIER_ANDROID
+        phone.identifierInformation.phoneInformation.canonicIds.canonicId.add().id = "PHONE_SECRET_ID"
+        tag = response.deviceMetadata.add()
+        tag.userDefinedDeviceName = "Loshall Tag"
+        tag.identifierInformation.type = pb.IDENTIFIER_SPOT
+        tag.identifierInformation.canonicIds.canonicId.add().id = "SPOT_SECRET_ID"
+
+        with patch("NovaApi.ListDevices.nbe_list_devices.request_device_list",
+                   return_value=response.SerializeToString().hex()):
+            self.assertEqual(finder.list_trackers(), [("Loshall Tag", "SPOT_SECRET_ID")])
+            summary = finder.list_device_summary()
+            self.assertEqual(
+                [(row["name"], row["kind"]) for row in summary],
+                [("Jelly Star", "ANDROID"), ("Loshall Tag", "SPOT")],
+            )
+            self.assertNotIn("SECRET_ID", str(summary))
+
     def test_manual_auth_script_is_local_only(self):
         script = (Path(__file__).resolve().parents[1] / "tools" / "capture-vault-keys.js").read_text()
         self.assertIn("setVaultSharedKeys", script)

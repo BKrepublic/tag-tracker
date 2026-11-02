@@ -145,9 +145,15 @@ permissions. If the command is interrupted after Step 1, rerun it; Step 1
 will be skipped when already authenticated. The Google login or unlock
 page could change; this path is not an official or supported Google API.
 
-After successful authentication:
+After successful authentication, **first inspect the device types**. The
+Google API may return Android phones and tablets as well as trackers; this
+server polls only devices marked `SPOT`. Device names and types are shown,
+but not canonical IDs or tokens. If no `SPOT` device appears, the account's
+Google API response did not include the tracker; verify it exists in Find
+Hub under the same account before retrying any locations.
 
 ```sh
+.venv/bin/python -m server.manage devices
 .venv/bin/python -m server.manage poll
 .venv/bin/python -m server.manage adduser myname
 .venv/bin/python -m server
@@ -155,6 +161,11 @@ After successful authentication:
 
 Then open `http://127.0.0.1:8000` to inspect saved positions.
 The browser-based unlock flow must succeed before locations can be decrypted.
+An older pinned GoogleFindMyTools FCM client also had a known bug where
+unpadded base64url crypto headers or pushes for other app IDs crashed the
+receiver. Tag Tracker applies an in-memory compatibility fix based on
+[upstream PR #114](https://github.com/leonboe1/GoogleFindMyTools/pull/114);
+the pinned vendor checkout is not modified.
 Google may redirect to `/v3/signin/challenge/kls?flowName=EncryptionUnlockAndroid`
 to ask for the Android screen-lock PIN. Run the local-only console script **on
 that page before pressing Next**, not only on `/encryption/unlock/android`.

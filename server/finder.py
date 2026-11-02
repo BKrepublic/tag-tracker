@@ -58,6 +58,11 @@ def _ensure_imported():
     chrome_driver = types.ModuleType("chrome_driver")
     chrome_driver.create_driver = create_driver
     sys.modules["chrome_driver"] = chrome_driver
+    # Upstream's pinned FCM client crashes on base64url padding and on pushes
+    # intended for a different app. Apply the minimal in-memory compatibility fix.
+    from .fcm_compat import install_fcm_patch
+    from Auth.firebase_messaging.fcmpushclient import FcmPushClient
+    install_fcm_patch(FcmPushClient)
     _imported = True
 
 
@@ -160,14 +165,47 @@ def save_vault_keys(vault_keys) -> None:
     set_cached_value("shared_key", get_fmdn_shared_key(vault_keys).hex())
 
 
-def list_trackers() -> list[tuple[str, str]]:
-    """Returns [(name, canonic_id), ...] for all trackers on the Google account."""
+def _device_list():
     _ensure_imported()
     from NovaApi.ListDevices.nbe_list_devices import request_device_list
-    from ProtoDecoders.decoder import parse_device_list_protobuf, get_canonic_ids
+    from ProtoDecoders.decoder import parse_device_list_protobuf
 
-    device_list = parse_device_list_protobuf(request_device_list())
-    return get_canonic_ids(device_list)
+    return parse_device_list_protobuf(request_device_list())
+
+
+def list_device_summary() -> list[dict]:
+    """Return device names/types only; never expose canonical IDs or credentials."""
+    from ProtoDecoders import DeviceUpdate_pb2
+
+    result = []
+    for device in _device_list().deviceMetadata:
+        info = device.identifierInformation
+        kind = {
+            DeviceUpdate_pb2.IDENTIFIER_ANDROID: "ANDROID",
+            DeviceUpdate_pb2.IDENTIFIER_SPOT: "SPOT",
+        }.get(info.type, f"OTHER({info.type})")
+        ids = (
+            info.phoneInformation.canonicIds.canonicId
+            if info.type == DeviceUpdate_pb2.IDENTIFIER_ANDROID
+            else info.canonicIds.canonicId
+        )
+        result.append({"name": device.userDefinedDeviceName or "(unnamed)",
+                       "kind": kind, "ids": len(ids)})
+    return result
+
+
+def list_trackers() -> list[tuple[str, str]]:
+    """Return only real SPOT tags, not Android phones/tablets."""
+    from ProtoDecoders import DeviceUpdate_pb2
+
+    result = []
+    for device in _device_list().deviceMetadata:
+        if device.identifierInformation.type != DeviceUpdate_pb2.IDENTIFIER_SPOT:
+            continue
+        for item in device.identifierInformation.canonicIds.canonicId:
+            if item.id:
+                result.append((device.userDefinedDeviceName or "(unnamed)", item.id))
+    return result
 
 
 def _on_fcm_message(hex_string: str):
