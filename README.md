@@ -108,6 +108,48 @@ environment, conduct the Google sign-in on a trusted computer and transfer
 
 Or use Docker: `docker compose up -d`, then run `docker compose exec tracker python -m server.manage adduser myname`.
 
+### Alternative: normal Chrome sign-in without ChromeDriver
+
+Google may reject Selenium-controlled Chrome with a "browser or app may not
+be secure" error. The **interactive manual login** uses the Chrome browser
+you normally use and never starts a ChromeDriver session. It is based on
+the independently verified two-part flow described by
+[ioBroker GoogleFindMyDevice](https://github.com/beabel/ioBroker.googlefindmydevice).
+
+```sh
+.venv/bin/python -m server.manage google-manual-login
+```
+
+This command guides you through Google's `EmbeddedSetup` page and then the
+Find Hub encryption-unlock page. You copy one short-lived `oauth_token`
+cookie and one `vaultKeys` JSON value from your **own Chrome** into
+hidden local terminal prompts. The second step shows the entire source of
+[`tools/capture-vault-keys.js`](tools/capture-vault-keys.js) for inspection
+before you paste it into **the Google page only**. It only intercepts the
+Google page's `setVaultSharedKeys` callback and displays the returned JSON
+in a local text box; it never sends it to another server.
+
+**Security:** The cookie and vaultKeys are sensitive credentials. Do not
+paste either into a chat, public website, shell command arguments, browser
+extension, or issue report. Only use this on a machine you trust. Terminal
+input is hidden and the temporary cookie is not written to a file by the
+manual-login command. The exchanged AAS token and the shared decryption key
+are stored as plaintext at `data/google_secrets.json` with restrictive
+permissions. If the command is interrupted after Step 1, rerun it; Step 1
+will be skipped when already authenticated. The Google login or unlock
+page could change; this path is not an official or supported Google API.
+
+After successful authentication:
+
+```sh
+.venv/bin/python -m server.manage poll
+.venv/bin/python -m server.manage adduser myname
+.venv/bin/python -m server
+```
+
+Then open `http://127.0.0.1:8000` to inspect saved positions.
+The browser-based unlock flow must succeed before locations can be decrypted.
+
 ### Settings (environment variables)
 
 | Variable | Default | Meaning |

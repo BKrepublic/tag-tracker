@@ -51,6 +51,11 @@ security audit, nor a guarantee that Google account access is safe.
 - The map uses external tile providers and CDN-hosted Leaflet assets.
   Viewing a map can disclose viewed map areas and network metadata to
   those providers even when Nominatim lookup is disabled.
+- The optional `google-manual-login` command uses the user's normal browser,
+  no WebDriver. It prompts for an `oauth_token` and Google Find Hub
+  `vaultKeys` without echoing them; a human can inspect the local-only
+  `tools/capture-vault-keys.js` console script first. These are sensitive
+  credential materials: do not paste them in chats or commit them.
 - The local HTTP server is intended for localhost. **Do not open port 8000**
   to the public Internet; HTTPS, secure cookies, and authorization hardening
   are required before publishing behind a proxy.

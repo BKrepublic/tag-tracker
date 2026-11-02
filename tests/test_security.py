@@ -107,5 +107,33 @@ class SecurityTests(unittest.TestCase):
         self.assertNotIn("undetected_chromedriver", sys.modules)
 
 
+
+    def test_manual_google_login_does_not_echo_secrets(self):
+        import contextlib
+        import io
+        from server import manage
+        captured = io.StringIO()
+        with patch("server.finder.auth_state", side_effect=[
+            {"signed_in": False, "unlocked": False},
+            {"signed_in": True, "unlocked": False},
+        ]), patch("server.finder.sign_in_with_oauth_token", return_value="user@example.test") as sign_in, \
+             patch("server.finder.shared_key_url", return_value="https://accounts.google.com/encryption/unlock/android?kdi=test"), \
+             patch("server.finder.save_vault_keys") as save, \
+             patch("server.manage.getpass.getpass", side_effect=["SUPER_SECRET_TOKEN", '{"finder_hw":[]}']), \
+             contextlib.redirect_stdout(captured):
+            manage.google_manual_login()
+        sign_in.assert_called_once_with("SUPER_SECRET_TOKEN")
+        save.assert_called_once_with('{"finder_hw":[]}')
+        self.assertNotIn("SUPER_SECRET_TOKEN", captured.getvalue())
+        self.assertNotIn('{"finder_hw":[]}', captured.getvalue())
+        self.assertIn("capture", captured.getvalue())
+
+    def test_manual_auth_script_is_local_only(self):
+        script = (Path(__file__).resolve().parents[1] / "tools" / "capture-vault-keys.js").read_text()
+        self.assertIn("setVaultSharedKeys", script)
+        self.assertIn('location.origin !== "https://accounts.google.com"', script)
+        for disallowed in ("fetch(", "XMLHttpRequest", "sendBeacon", "WebSocket("):
+            self.assertNotIn(disallowed, script)
+
 if __name__ == "__main__":
     unittest.main()
